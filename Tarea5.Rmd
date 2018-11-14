@@ -1,0 +1,321 @@
+---
+title: "Tarea5"
+output: html_document
+---
+
+** Viviana Fabres, Consuelo Meza y Diego Parra
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(tidyquant)
+
+```
+## Pregunta 2
+### Parte 1
+
+A continuación se descargan los precios de las acciones de Microsoft (“MSFT”) y Apple (“AAPL”) desde Enero
+del 2000 hasta Agosto del 2018 con periodicidad mensual.
+
+```{r}
+microsoft <- tq_get("MSFT",
+                       get = "stock.prices",
+                       from = "2000-01-01",
+                       to = "2018-08-31",
+                       periodicity = "monthly")
+
+apple <- tq_get("AAPL",
+                    get = "stock.prices",
+                    from = "2000-01-01",
+                    to = "2018-08-31",
+                    periodicity = "monthly")
+
+```
+### Parte 2
+### parte A
+Ahora calculamos los retornos de las acciones
+
+```{r}
+r_microsoft <- microsoft %>%
+  tq_transmute(select = close,
+               mutate_fun = periodReturn,
+               period = "monthly")
+
+r_apple <- apple %>%
+  tq_transmute(select = close,
+               mutate_fun = periodReturn,
+               period = "monthly")
+
+```
+### parte B
+
+Finalmente, gráficamos los retornos y retornos acumulados,  calculados en la pregunta anterior.
+
+```{r}
+g_r_microsoft <- ggplot(r_microsoft) + geom_line(aes(date,monthly.returns), color = "darkblue") + 
+  labs(title = "Retornos mensuales Microsoft", subtitle = "Enero 2010 a Agosto 2018") +
+  theme_tq() + scale_color_tq() + 
+  xlab("Periodo") + ylab("Retorno")
+g_r_microsoft
+
+g_r_apple <- ggplot(r_apple) + geom_line(aes(date,monthly.returns), color = "darkgreen") + 
+  labs(title = "Retornos mensuales Apple", subtitle = "Enero 2010 a Agosto 2018") +
+  theme_tq() + scale_color_tq() + 
+  xlab("Periodo") + ylab("Retorno")
+g_r_apple
+
+```
+
+
+## Pregunta 3
+### pregunta a
+
+EL modelo 0 es el modelo erróneo, con variable relevante omitida. El modelo 1 es el modelo correcto que se estimó de todas manerás para ver las diferencias con el modelo erróneo.
+
+Los resultados muestran que en el modelo erróneo sí exsite sesgo debido a la omisión de una variable relevante, dado que el término de error está correlacionado con las variables explicativas. El sesgo no desaparece a medida que aumenta el tamaño de la muestra, porque el valor de b1 no se acerca a su valor verdadero de 2.5
+
+
+
+```{r cars}
+
+set.seed(123)
+reps = 10000
+betas = matrix(NA ,nrow = reps, ncol = 16)
+
+beta0 = 2
+beta1 = 2.5
+beta2 = 1
+
+su = 1
+
+n = c(50, 100, 500, 1000)
+
+for (j in 1:length(n)){
+  X1 = rnorm(n[j],20,1)
+  X2a = (0.8*X1) + rnorm(n[j],0,1)
+  X2b = runif(n[j],0,1)
+  
+  for (i in 1:reps) {
+    
+    u = rnorm(n[j],0,su)
+    v = beta2*X2a + u
+    
+    Y0 = beta0 + beta1*X1 + v
+    Y1 = beta0 + beta1*X1 + beta2*X2a + u
+    
+    model0 = lm(Y0 ~ X1)
+    betas[i,j] = model0$coef[1]
+    betas[i,j+4] = model0$coef[2]
+    
+    model1 = lm(Y1 ~ X1 + X2a)
+    betas[i,j+8] = model1$coef[1]
+    betas[i,j+12] = model1$coef[2]
+    }
+}
+
+betas_df = data.frame(betas)
+
+apply(betas_df, 2, mean)
+apply(betas_df, 2, var)
+```
+
+### Pregunta b
+
+Acontinuación se muestran los gráficos de la distribución de beta 1 del modelo erróneo, para los distintos tamaños de  muestra.
+
+
+
+```{r pressure}
+m0_50 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,5],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,5]), sd=sd(betas_df[,5])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 0,n=50") +xlab(expression(hat(beta)[1])) + 
+  theme_bw()
+
+m0_50
+
+m0_100 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,6],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,6]), sd=sd(betas_df[,6])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 0,n=100") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m0_100
+
+m0_500 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,7],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,7]), sd=sd(betas_df[,7])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 0,n=500") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m0_500
+
+m0_1000 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,8],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,8]), sd=sd(betas_df[,8])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 0,n=1000") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m0_1000
+
+m1_50 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,13],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,13]), sd=sd(betas_df[,13])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 1,n=50") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m1_50
+
+m1_100 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,14],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,14]), sd=sd(betas_df[,14])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 1,n=100") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m1_100
+
+m1_500 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,15],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,15]), sd=sd(betas_df[,15])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") + ggtitle("Retorno Beta 1 Modelo 1,n=500") +xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+m1_500
+
+m1_1000 = ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,16],y=..density..), col="black", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean=mean(betas_df[,16]), sd=sd(betas_df[,16])),
+                geom = "line", color="red", size=1) +
+  ylab("Densidad") +ggtitle("Retorno Beta 1 Modelo 1,n=1000") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m1_1000
+
+```
+
+### Pregunta c
+A continuación se muestran los gráficos para la estimación considerando que x2 se distribuye de manera Uniforme[0.1].
+
+Con la nueva distribucion de X2, b1 si se acerca a su valor verdadero de 2,5. Inluso vemos, en la matriz, que ahora los valores de b1 del modelo erronéo se asimilan mucho a los valores del modelo correcto, para todos los tamaños de la muestra. 
+
+En los graficos observamos que la media del coeficiente b1 se encuentra más centrado en 2.5, para todos los tamaños de la muestra. 
+
+Es decir, el hecho de que X2 ahora tenga una distribución uniforme 0,1 ayuda a que los valores estimados de los coeficientes se acerquen a su valor verdadero.
+
+```{r}
+
+betasb = matrix(NA ,nrow = reps, ncol = 16)  
+  
+  for (j in 1:length(n)){
+    X1 = rnorm(n[j],20,1)
+    X2a = (0.8*X1) + rnorm(n[j],0,1)
+    X2b = runif(n[j],0,1)
+    
+    for (i in 1:reps) {
+      
+      u = rnorm(n[j],0,su)
+      v = beta2*X2b + u
+      
+      Y0 = beta0 + beta1*X1 + v
+      Y1 = beta0 + beta1*X1 + beta2*X2b + u
+      
+      model0 = lm(Y0 ~ X1)
+      betasb[i,j] = model0$coef[1]
+      betasb[i,j+4] = model0$coef[2]
+      
+      model1 = lm(Y1 ~ X1 + X2b)
+      betasb[i,j+8] = model1$coef[1]
+      betasb[i,j+12] = model1$coef[2]
+    }
+  }
+  
+  betas_dfb = data.frame(betasb)
+  
+  apply(betas_dfb, 2, mean)
+  
+  apply(betas_dfb, 2, var)
+  
+  m0_50b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,5],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,5]), sd=sd(betas_dfb[,5])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=50 con X2 uniforme") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m0_50b
+  
+  m0_100b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,6],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,6]), sd=sd(betas_dfb[,6])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=100 con X2 uniforme modelo 0") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m0_100b
+  
+  m0_500b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,7],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,7]), sd=sd(betas_dfb[,7])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=500 con X2 uniforme modelo 0") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m0_500b
+  
+  m0_1000b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,8],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,8]), sd=sd(betas_dfb[,8])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=1000 con X2 uniforme modelo 0") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m0_1000b
+  
+  m1_50b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,13],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,13]), sd=sd(betas_dfb[,13])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=50 con X2 uniforme modelo 1 ") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m1_50b
+  
+  m1_100b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,14],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,14]), sd=sd(betas_dfb[,14])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=100 con X2 uniforme modelo 1") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m1_100b
+  
+  m1_500b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,15],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,15]), sd=sd(betas_dfb[,15])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=500 con X2 uniforme modelo 1") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m1_500b
+  
+  m1_1000b = ggplot(betas_dfb) + 
+    geom_histogram(aes(betas_dfb[,16],y=..density..), col="black", bins = 30) +
+    stat_function(fun = dnorm, args = list(mean=mean(betas_dfb[,16]), sd=sd(betas_dfb[,16])),
+                  geom = "line", color="red", size=1) +
+    ylab("Densidad") + ggtitle("n=1000 con X2 uniforme modelo 1") +xlab(expression(hat(beta)[1])) +
+    theme_bw()
+  
+  m1_1000b
+
+```
+
+
